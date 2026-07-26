@@ -1,6 +1,7 @@
 // Archivo para manejar las peticiones a la API
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
 
-const API_URL = "https://tienda-backend-p9ms.onrender.com/api"
+const API_URL = `${API_BASE_URL}/api`
 
 // Interfaz para los productos según el backend
 export interface Producto {

@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { type Producto, createProducto } from "@/services/product-service"
+import { type Producto, createProducto, validarTiendaDelUsuario } from "@/services/product-service"
 import BarcodeScanner from "@/components/barcode-scanner"
 
 export default function AddProductPage() {
@@ -23,7 +23,9 @@ export default function AddProductPage() {
 
   const [userType, setUserType] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [storeName, setStoreName] = useState<string>("")
+  const [storeExists, setStoreExists] = useState(true)
   const [showScanner, setShowScanner] = useState(false)
 
   const [formData, setFormData] = useState<Producto>({
@@ -47,7 +49,7 @@ export default function AddProductPage() {
   // Categorías predefinidas
   const categories = ["Frutas", "Verduras", "Lácteos", "Carnes", "Abarrotes", "Bebidas", "Limpieza", "Otros"]
 
-  // Verificar si el usuario está autorizado
+  // Verificar si el usuario está autorizado y si la tienda existe y pertenece al usuario
   useEffect(() => {
     const storedUserType = localStorage.getItem("userType")
     setUserType(storedUserType)
@@ -57,20 +59,70 @@ export default function AddProductPage() {
       return
     }
 
-    // Obtener el nombre de la tienda seleccionada
-    const selectedStoreName = localStorage.getItem("selectedStoreName")
-    if (selectedStoreName) {
-      setStoreName(selectedStoreName)
+    // Validar tienda
+    const validateStore = async () => {
+      try {
+        const validacion = await validarTiendaDelUsuario(Number(storeId))
+        
+        if (validacion.existe && validacion.tienda) {
+          // Tienda existe y pertenece al usuario
+          setStoreExists(true)
+          const tiendaNombre = validacion.tienda.nombre || `Tienda ${storeId}`
+          setStoreName(tiendaNombre)
+          localStorage.setItem("selectedStoreName", tiendaNombre)
+          
+          setFormData((prev) => ({
+            ...prev,
+            tienda_id: Number(storeId),
+          }))
+        } else {
+          // Tienda no existe o no pertenece al usuario
+          setStoreExists(false)
+          
+          // Si hay otras tiendas disponibles, redirigir a la primera
+          if (validacion.tiendas && validacion.tiendas.length > 0) {
+            const firstStore = validacion.tiendas[0]
+            console.log(`Redirigiendo a la tienda disponible: ${firstStore.id}`)
+            toast({
+              title: "Tienda no encontrada",
+              description: `La tienda con ID ${storeId} no existe o no pertenece a ti. Redirigiendo a tu primera tienda...`,
+              variant: "destructive",
+            })
+            
+            // Redirigir a la primera tienda disponible
+            setTimeout(() => {
+              router.push(`/stores/${firstStore.id}/products`)
+            }, 2000)
+          } else {
+            // No hay tiendas disponibles
+            toast({
+              title: "Error",
+              description: "No tienes tiendas disponibles. Crea una tienda primero.",
+              variant: "destructive",
+            })
+            
+            setTimeout(() => {
+              router.push("/stores")
+            }, 2000)
+          }
+        }
+      } catch (error) {
+        console.error("Error al validar tienda:", error)
+        // Si hay error, asumir que la tienda existe (para no bloquear al usuario)
+        setStoreExists(true)
+        const selectedStoreName = localStorage.getItem("selectedStoreName")
+        if (selectedStoreName) {
+          setStoreName(selectedStoreName)
+        }
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    // Actualizar tienda_id en formData
-    setFormData((prev) => ({
-      ...prev,
-      tienda_id: Number(storeId),
-    }))
+    validateStore()
 
     console.log(`Página de añadir producto inicializada para tienda_id=${storeId}`)
-  }, [router, storeId])
+  }, [router, storeId, toast])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -174,14 +226,13 @@ export default function AddProductPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
+    if (!validateForm() || !storeExists) {
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      // Asegurarnos de que tienda_id sea un número
       const productoData = {
         ...formData,
         tienda_id: Number(storeId),
@@ -189,44 +240,14 @@ export default function AddProductPage() {
 
       console.log("Enviando producto:", productoData)
 
-      // Intentar crear el producto en la API
-      try {
-        const createdProduct = await createProducto(productoData)
-        console.log("Producto creado con éxito en la API:", createdProduct)
+      const createdProduct = await createProducto(productoData)
+      console.log("Producto creado con éxito en la API:", createdProduct)
 
-        toast({
-          title: "Producto creado",
-          description: "El producto ha sido creado con éxito",
-          variant: "success",
-        })
-      } catch (apiError) {
-        console.error("Error al crear producto en la API, usando localStorage como fallback:", apiError)
-
-        // Fallback: Guardar en localStorage si la API falla
-        const existingProducts = localStorage.getItem(`store_${storeId}_products`)
-        const products = existingProducts ? JSON.parse(existingProducts) : []
-
-        // Generar un nuevo ID (el más alto + 1)
-        const newId = products.length > 0 ? Math.max(...products.map((p: any) => p.id)) + 1 : 1
-
-        // Crear el nuevo producto con el ID generado
-        const newProduct = {
-          ...productoData,
-          id: newId,
-        }
-
-        // Agregar el nuevo producto a la lista
-        products.push(newProduct)
-
-        // Guardar en localStorage
-        localStorage.setItem(`store_${storeId}_products`, JSON.stringify(products))
-
-        toast({
-          title: "Producto guardado localmente",
-          description: "El producto ha sido guardado en el almacenamiento local",
-          variant: "success",
-        })
-      }
+      toast({
+        title: "Producto creado",
+        description: "El producto ha sido guardado en el servidor",
+        variant: "success",
+      })
 
       // Redirigir a la página de productos
       setTimeout(() => {
@@ -234,9 +255,36 @@ export default function AddProductPage() {
       }, 500)
     } catch (err) {
       console.error("Error al crear el producto:", err)
+      
+      // Intentar extraer mensaje de error más específico
+      let errorMessage = "Error desconocido"
+      if (err instanceof Error) {
+        errorMessage = err.message
+        
+        // Si el error contiene JSON, intentar parsearlo
+        if (errorMessage.includes("400") || errorMessage.includes("tienda")) {
+          try {
+            // Buscar JSON en el mensaje de error
+            const jsonMatch = errorMessage.match(/\{.*\}/)
+            if (jsonMatch) {
+              const errorJson = JSON.parse(jsonMatch[0])
+              if (errorJson.tienda_id) {
+                if (Array.isArray(errorJson.tienda_id)) {
+                  errorMessage = `Error con la tienda: ${errorJson.tienda_id[0]}`
+                } else {
+                  errorMessage = `Error con la tienda: ${errorJson.tienda_id}`
+                }
+              }
+            }
+          } catch (parseErr) {
+            // Si no se puede parsear, usar el mensaje original
+          }
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: `No se pudo crear el producto: ${err instanceof Error ? err.message : "Error desconocido"}`,
+        title: "Error al crear el producto",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -254,7 +302,28 @@ export default function AddProductPage() {
       </div>
 
       <div className="container max-w-md mx-auto p-4">
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        {isLoading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-blue-800">Verificando tienda...</p>
+          </div>
+        )}
+
+        {!isLoading && !storeExists && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-red-800 font-semibold">Error: Tienda no encontrada</p>
+            <p className="text-red-700 text-sm mt-1">
+              La tienda con ID {storeId} no existe. Por favor, selecciona una tienda válida.
+            </p>
+            <button
+              onClick={goBack}
+              className="mt-3 px-4 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+            >
+              Volver a tiendas
+            </button>
+          </div>
+        )}
+
+        <form className="space-y-5" onSubmit={handleSubmit} disabled={!storeExists || isLoading}>
           <div className="space-y-2">
             <Label htmlFor="nombre" className="text-base">
               Nombre del Producto *
@@ -387,9 +456,9 @@ export default function AddProductPage() {
           <Button
             type="submit"
             className="w-full h-14 text-base bg-primary hover:bg-primary-dark mt-6 android-ripple"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !storeExists || isLoading}
           >
-            {isSubmitting ? "Guardando..." : "Guardar Producto"}
+            {isLoading ? "Verificando..." : isSubmitting ? "Guardando..." : "Guardar Producto"}
           </Button>
         </form>
       </div>

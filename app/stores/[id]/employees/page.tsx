@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+
 // Interfaz para los empleados
 interface Employee {
   id: number
@@ -115,7 +117,7 @@ export default function StoreEmployeesPage() {
       }
 
       // Usar el endpoint correcto con https
-      const apiUrl = `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/empleados/`
+      const apiUrl = `${API_BASE_URL}/api/tiendas/${storeId}/empleados/`
       console.log("Intentando acceder a:", apiUrl)
 
       const response = await fetch(apiUrl, {
@@ -154,7 +156,7 @@ export default function StoreEmployeesPage() {
         const refreshToken = localStorage.getItem("refreshToken")
         if (refreshToken) {
           try {
-            const refreshResponse = await fetch("https://tienda-backend-p9ms.onrender.com/api/token/refresh/", {
+            const refreshResponse = await fetch(`${API_BASE_URL}/api/token/refresh/`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -256,7 +258,7 @@ export default function StoreEmployeesPage() {
 
       // Usar el endpoint correcto con https
       const response = await fetch(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/agregar_empleado/`,
+        `${API_BASE_URL}/api/tiendas/${storeId}/agregar_empleado/`,
         {
           method: "POST",
           headers: {
@@ -355,7 +357,7 @@ export default function StoreEmployeesPage() {
 
         // Usar el endpoint correcto con https y enviar el ID del empleado en el cuerpo
         const response = await fetch(
-          `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/remover_empleado/`,
+          `${API_BASE_URL}/api/tiendas/${storeId}/remover_empleado/`,
           {
             method: "POST",
             headers: {

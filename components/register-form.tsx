@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { User, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+
 export function RegisterForm() {
   // Cambiar el estado inicial para usar password1 en lugar de password
   const [formData, setFormData] = useState({
@@ -28,6 +30,7 @@ export function RegisterForm() {
   const [showPassword1, setShowPassword1] = useState(false)
   const [showPassword2, setShowPassword2] = useState(false)
   const router = useRouter()
+  const registrationRole = "vendedor"
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -107,14 +110,19 @@ export function RegisterForm() {
     setErrors({})
 
     try {
-      console.log("Enviando datos de registro:", formData)
+      const payload = {
+        ...formData,
+        role: registrationRole,
+      }
 
-      const response = await fetch("https://tienda-backend-p9ms.onrender.com/api/auth/registration/", {
+      console.log("Enviando datos de registro:", payload)
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/registration/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
 
       console.log("Respuesta del servidor:", response.status, response.statusText)
@@ -201,7 +209,7 @@ export function RegisterForm() {
         <Link href="/" className="text-white">
           <ArrowLeft className="h-6 w-6" />
         </Link>
-        <h1 className="text-2xl font-bold text-white">Crear cuenta</h1>
+        <h1 className="text-2xl font-bold text-white">Registrar vendedor</h1>
         <div className="w-6"></div> {/* Spacer to center the title */}
       </div>
 
@@ -240,6 +248,10 @@ export function RegisterForm() {
               required
             />
             {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
+          </div>
+
+          <div className="bg-input-bg rounded-md px-4 py-3 text-sm text-text-secondary">
+            Rol asignado: <span className="font-semibold">Vendedor</span>
           </div>
 
           <div className="relative">
@@ -291,7 +303,7 @@ export function RegisterForm() {
             className="w-full h-12 text-base bg-primary hover:bg-primary-dark text-white android-ripple mt-2"
             disabled={isLoading}
           >
-            {isLoading ? "Registrando..." : "Registrarse"}
+            {isLoading ? "Registrando vendedor..." : "Registrar vendedor"}
           </Button>
         </div>
       </form>

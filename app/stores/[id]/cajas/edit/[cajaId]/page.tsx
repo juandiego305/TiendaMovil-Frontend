@@ -12,6 +12,8 @@ import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { fetchWithAuth } from "@/lib/utils"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+
 interface CajaData {
   id: number
   usuario: number
@@ -66,7 +68,7 @@ export default function EditCajaPage() {
     try {
       console.log(`Seleccionando tienda con ID: ${storeId}`)
       const response = await fetchWithAuth(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
+        `${API_BASE_URL}/api/tiendas/${storeId}/seleccionar_tienda/`,
         {
           method: "POST",
           headers: {
@@ -113,7 +115,7 @@ export default function EditCajaPage() {
   const fetchCaja = async () => {
     try {
       console.log(`Obteniendo caja con ID: ${cajaId}`)
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/cajas/${cajaId}/`)
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/cajas/${cajaId}/`)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -274,7 +276,7 @@ export default function EditCajaPage() {
 
       console.log("Actualizando caja:", cajaData)
 
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/cajas/${cajaId}/`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/cajas/${cajaId}/`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

@@ -185,7 +185,7 @@ export default function ProductsPage() {
 
   // Función para navegar a la página de añadir producto
   const navigateToAddProduct = () => {
-    router.push(`/stores/${storeId}/productos/add`)
+    router.push(`/stores/${storeId}/products/add`)
   }
 
   // Función para volver a la página de la tienda

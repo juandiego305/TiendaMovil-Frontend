@@ -12,6 +12,8 @@ import { useRouter, useParams } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
 import { fetchWithAuth } from "@/lib/utils"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+
 interface StoreData {
   id: string
   nombre: string
@@ -65,7 +67,7 @@ export default function EditStorePage() {
 
       try {
         console.log(`Obteniendo datos de la tienda con ID: ${storeId}`)
-        const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/`)
+        const response = await fetchWithAuth(`${API_BASE_URL}/api/tiendas/${storeId}/`)
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -160,7 +162,7 @@ export default function EditStorePage() {
 
       console.log(`Actualizando tienda ${storeId} con datos:`, updateData)
 
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/tiendas/${storeId}/`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

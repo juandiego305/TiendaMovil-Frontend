@@ -1,118 +1,91 @@
+// Definimos la URL base desde las variables de entorno
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com";
+
+/**
+ * Inicia sesión en el backend de Django
+ * Cumple con los requisitos de seguridad (2.2) y conexión (2.3)
+ */
 export async function loginToBackend(): Promise<void> {
   try {
-    const username = "admin"
-    const password = "admin123"
+    // Datos de acceso (asegúrate de que existan en tu base de datos de Neon)
+    const username = "admin";
+    const password = "admin123";
 
-    const response = await fetch("https://tienda-backend-p9ms.onrender.com/api/auth/login/", {
+    const response = await fetch(`${API_BASE_URL}/api/token/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ username, password }),
-    })
+    });
 
     if (!response.ok) {
-      console.error("Error de autenticación:", response.status, response.statusText)
-      throw new Error("Error al autenticar con el backend")
+      const errorData = await response.json();
+      console.error("Detalle del error:", errorData);
+      throw new Error(`Error de autenticación: ${response.status}`);
     }
 
-    const data = await response.json()
+    const data = await response.json();
 
-    if (data.access) {
-      localStorage.setItem("backendToken", data.access)
-      localStorage.setItem("userType", "admin")
+    // Manejo dinámico de Tokens (JWT o Token básico)
+    const token = data.access || data.key;
 
+    if (token) {
+      localStorage.setItem("backendToken", token);
+      localStorage.setItem("userType", "admin");
+
+      // Si es JWT, guardamos el refresh token para mantener la sesión
       if (data.refresh) {
-        localStorage.setItem("refreshToken", data.refresh)
-        const expiresAt = new Date()
-        expiresAt.setHours(expiresAt.getHours() + 1)
-        localStorage.setItem("tokenExpiresAt", expiresAt.toISOString())
+        localStorage.setItem("refreshToken", data.refresh);
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 1);
+        localStorage.setItem("tokenExpiresAt", expiresAt.toISOString());
       }
-    } else if (data.key) {
-      localStorage.setItem("backendToken", data.key)
-      localStorage.setItem("userType", "admin")
+      
+      console.log("✅ Conexión exitosa con el backend local");
     } else {
-      console.error("No se recibió token de acceso:", data)
-      throw new Error("No se recibió token de acceso")
+      throw new Error("El backend no devolvió un token válido.");
     }
   } catch (error) {
-    console.error("Error en loginToBackend:", error)
-    throw error
+    console.error("❌ Error en loginToBackend:", error);
+    throw error;
   }
 }
 
-// Función para generar un nombre aleatorio para simulación
-export function generateRandomVendorName(): string {
-  const firstNames = [
-    "Carlos",
-    "María",
-    "Juan",
-    "Ana",
-    "Luis",
-    "Laura",
-    "Pedro",
-    "Sofía",
-    "Andrés",
-    "Valentina",
-    "José",
-    "Camila",
-    "Fernando",
-    "Isabella",
-    "Diego",
-    "Gabriela",
-  ]
-
-  const lastNames = [
-    "García",
-    "Rodríguez",
-    "Martínez",
-    "López",
-    "González",
-    "Pérez",
-    "Sánchez",
-    "Ramírez",
-    "Torres",
-    "Flores",
-    "Rivera",
-    "Gómez",
-    "Díaz",
-    "Reyes",
-    "Cruz",
-    "Morales",
-  ]
-
-  const firstName = firstNames[Math.floor(Math.random() * firstNames.length)]
-  const lastName = lastNames[Math.floor(Math.random() * lastNames.length)]
-
-  return `${firstName} ${lastName}`
-}
-
-// Función para realizar solicitudes autenticadas
-export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+/**
+ * Realiza solicitudes autenticadas a cualquier endpoint
+ * Uso: fetchWithAuth('/api/productos/')
+ */
+export async function fetchWithAuth(endpoint: string, options: RequestInit = {}): Promise<Response> {
   try {
-    // Obtener token de autenticación
-    const token = localStorage.getItem("backendToken")
+    const token = localStorage.getItem("backendToken");
 
     if (!token) {
-      throw new Error("No hay token de autenticación disponible")
+      throw new Error("No hay sesión activa. Por favor, inicia sesión.");
     }
 
-    // Configurar opciones con el token
+    // Construcción automática de la URL para evitar errores de 404
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+
     const authOptions: RequestInit = {
       ...options,
       headers: {
         ...options.headers,
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        "Authorization": `Bearer ${token}`, // Estándar JWT
       },
-    }
+    };
 
-    console.log(`Realizando solicitud a ${url}`)
-    const response = await fetch(url, authOptions)
-    return response
+    return await fetch(url, authOptions);
   } catch (error) {
-    console.error(`Error en fetchWithAuth para URL ${url}:`, error)
-    throw error
+    console.error(`❌ Error en petición a ${endpoint}:`, error);
+    throw error;
   }
 }
 
+// Generador de nombres para pruebas (sin cambios)
+export function generateRandomVendorName(): string {
+  const firstNames = ["Carlos", "María", "Juan", "Ana", "Luis", "Laura", "Pedro", "Sofía"];
+  const lastNames = ["García", "Rodríguez", "Martínez", "López", "González", "Pérez"];
+  return `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+}

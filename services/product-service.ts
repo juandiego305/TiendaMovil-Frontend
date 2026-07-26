@@ -1,4 +1,4 @@
-import { fetchWithAuth } from "@/services/auth-service"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
 
 // Actualizar la interfaz para que coincida con los campos del serializador
 export interface Producto {
@@ -11,59 +11,73 @@ export interface Producto {
   // Campos adicionales que usamos en el frontend pero no están en el serializador
   descripcion?: string
   disponible?: boolean
-  tienda_id: number
+  tienda_id: number | string
   imagen?: string
   oculto?: boolean
+}
+
+function getAuthToken(): string {
+  const token = localStorage.getItem("backendToken")
+
+  if (!token) {
+    throw new Error("No hay token de autenticación disponible")
+  }
+
+  return token
+}
+
+async function apiFetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${getAuthToken()}`,
+      "Content-Type": "application/json",
+    },
+  })
+
+  return response
 }
 
 // Crear un nuevo producto - Corregido para usar fetchWithAuth
 export async function createProducto(producto: Producto): Promise<Producto> {
   try {
-    // Asegurarse de que tienda_id sea un número
     const tiendaId = Number(producto.tienda_id)
 
-    // Crear un objeto que solo contenga los campos que espera el serializador
-    // Asegurarse de que los campos obligatorios tengan valores válidos
+    if (Number.isNaN(tiendaId)) {
+      throw new Error("tienda_id debe ser un número válido")
+    }
+
     const productoData = {
       nombre: producto.nombre,
       categoria: producto.categoria,
-      precio: producto.precio || 0, // Asegurar que no sea null
-      cantidad: producto.cantidad || 0, // Asegurar que no sea null
-      codigo_barras: producto.codigo_barras || null, // Este sí puede ser null
+      precio: producto.precio,
+      cantidad: producto.cantidad,
+      codigo_barras: producto.codigo_barras ?? null,
       tienda_id: tiendaId,
     }
 
-    console.log(`Creando producto para tienda_id=${tiendaId}`, productoData)
+    console.log("Creando producto:", productoData)
 
-    // CORREGIDO: Usar fetchWithAuth en lugar de fetch directo
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/productos/?tienda_id=${tiendaId}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(productoData),
-      },
-    )
+    const response = await apiFetch(`/api/productos/`, {
+      method: "POST",
+      body: JSON.stringify(productoData),
+    })
 
-    // Registrar la respuesta completa para depuración
     console.log("Respuesta del servidor:", {
+      endpoint: `${API_BASE_URL}/api/productos/`,
       status: response.status,
       statusText: response.statusText,
     })
 
-    // Si la respuesta no es exitosa, mostrar detalles del error
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`Error ${response.status} al crear producto:`, errorText)
 
       try {
-        // Intentar parsear como JSON para obtener más detalles
         const errorJson = JSON.parse(errorText)
         console.error("Detalles del error:", errorJson)
       } catch (e) {
-        // Si no es JSON, usar el texto tal cual
         console.error("Respuesta de error (texto plano):", errorText)
       }
 
@@ -83,12 +97,9 @@ export async function createProducto(producto: Producto): Promise<Producto> {
 export async function getProductos(tiendaId: number): Promise<Producto[]> {
   try {
     console.log(`Obteniendo productos para tienda_id=${tiendaId}`)
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/productos/?tienda_id=${tiendaId}`,
-      {
-        method: "GET",
-      },
-    )
+    const response = await apiFetch(`/api/productos/?tienda_id=${tiendaId}`, {
+      method: "GET",
+    })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -109,12 +120,9 @@ export async function getProductos(tiendaId: number): Promise<Producto[]> {
 export async function getProductsByStore(tiendaId: string): Promise<Producto[]> {
   try {
     console.log(`Obteniendo productos para tienda_id=${tiendaId}`)
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/productos/?tienda_id=${tiendaId}`,
-      {
-        method: "GET",
-      },
-    )
+    const response = await apiFetch(`/api/productos/?tienda_id=${tiendaId}`, {
+      method: "GET",
+    })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -140,12 +148,9 @@ export async function getProducto(productoId: number, tiendaId: number): Promise
     const localStorageKey = `producto_${tiendaId}_${productoId}`
     const cachedProducto = localStorage.getItem(localStorageKey)
 
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/productos/${productoId}/?tienda_id=${tiendaId}`,
-      {
-        method: "GET",
-      },
-    )
+    const response = await apiFetch(`/api/productos/${productoId}/?tienda_id=${tiendaId}`, {
+      method: "GET",
+    })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -203,16 +208,10 @@ export async function updateProducto(productoId: number, producto: Producto): Pr
       }),
     )
 
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/productos/${productoId}/?tienda_id=${tiendaId}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(productoData),
-      },
-    )
+    const response = await apiFetch(`/api/productos/${productoId}/?tienda_id=${tiendaId}`, {
+      method: "PUT",
+      body: JSON.stringify(productoData),
+    })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -236,12 +235,9 @@ export async function deleteProducto(productoId: number, tiendaId: number): Prom
   try {
     console.log(`Eliminando producto con id=${productoId} para tienda_id=${tiendaId}`)
 
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/productos/${productoId}/?tienda_id=${tiendaId}`,
-      {
-        method: "DELETE",
-      },
-    )
+    const response = await apiFetch(`/api/productos/${productoId}/?tienda_id=${tiendaId}`, {
+      method: "DELETE",
+    })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -282,19 +278,13 @@ export async function actualizarCantidadProducto(
   try {
     console.log(`Actualizando cantidad del producto con id=${productoId} para tienda_id=${tiendaId} a ${nuevaCantidad}`)
 
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/productos/${productoId}/actualizar-cantidad/`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tienda_id: tiendaId,
-          cantidad: nuevaCantidad,
-        }),
-      },
-    )
+    const response = await apiFetch(`/api/productos/${productoId}/actualizar-cantidad/`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        tienda_id: tiendaId,
+        cantidad: nuevaCantidad,
+      }),
+    })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -323,12 +313,9 @@ export async function getProductosDisponibles(tiendaId: number): Promise<Product
   try {
     console.log(`Obteniendo productos disponibles para tienda_id=${tiendaId}`)
 
-    const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/productos/disponibles/?tienda_id=${tiendaId}`,
-      {
-        method: "GET",
-      },
-    )
+    const response = await apiFetch(`/api/productos/disponibles/?tienda_id=${tiendaId}`, {
+      method: "GET",
+    })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -342,6 +329,84 @@ export async function getProductosDisponibles(tiendaId: number): Promise<Product
   } catch (error) {
     console.error("Error en getProductosDisponibles:", error)
     throw error
+  }
+}
+
+// Obtener todas las tiendas del usuario actual
+export async function getTiendasUsuario(): Promise<any[]> {
+  try {
+    console.log(`Obteniendo tiendas del usuario actual`)
+    
+    const response = await apiFetch(`/api/tiendas/`, {
+      method: "GET",
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error ${response.status} al obtener tiendas:`, errorText)
+      throw new Error(`Error al obtener tiendas: ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log("Tiendas obtenidas:", data)
+    return Array.isArray(data) ? data : data.results || []
+  } catch (error) {
+    console.error("Error en getTiendasUsuario:", error)
+    throw error
+  }
+}
+
+// Obtener tienda específica por ID
+export async function getTiendaById(tiendaId: number): Promise<any> {
+  try {
+    console.log(`Obteniendo tienda con id=${tiendaId}`)
+    
+    const response = await apiFetch(`/api/tiendas/${tiendaId}/`, {
+      method: "GET",
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Error ${response.status} al obtener tienda:`, errorText)
+      throw new Error(`Error al obtener tienda: ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log("Tienda obtenida:", data)
+    return data
+  } catch (error) {
+    console.error("Error en getTiendaById:", error)
+    throw error
+  }
+}
+
+// Validar que la tienda existe y pertenece al usuario actual
+export async function validarTiendaDelUsuario(tiendaId: number): Promise<{ existe: boolean; tienda?: any; tiendas?: any[] }> {
+  try {
+    console.log(`Validando tienda ${tiendaId} para el usuario actual`)
+    
+    const tiendas = await getTiendasUsuario()
+    console.log("Tiendas del usuario:", tiendas)
+    
+    if (!tiendas || tiendas.length === 0) {
+      console.warn("El usuario no tiene tiendas")
+      return { existe: false, tiendas: [] }
+    }
+
+    // Buscar la tienda en la lista del usuario
+    const tiendaEncontrada = tiendas.find((t: any) => t.id === tiendaId || Number(t.id) === Number(tiendaId))
+    
+    if (tiendaEncontrada) {
+      console.log(`Tienda ${tiendaId} encontrada y validada`)
+      return { existe: true, tienda: tiendaEncontrada, tiendas }
+    } else {
+      console.warn(`Tienda ${tiendaId} no pertenece al usuario actual`)
+      return { existe: false, tiendas }
+    }
+  } catch (error) {
+    console.error("Error en validarTiendaDelUsuario:", error)
+    // Si hay error, retornamos que no existe para ser seguro
+    return { existe: false, tiendas: [] }
   }
 }
 
@@ -359,7 +424,7 @@ export async function testApiEndpoints(storeId: number): Promise<{ [key: string]
     const endpointUrl = endpoints[key]
     try {
       console.log(`Testing endpoint: ${key} - ${endpointUrl}`)
-      const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com${endpointUrl}`)
+      const response = await apiFetch(endpointUrl, { method: "GET" })
       results[key] = response.ok
       console.log(`Endpoint ${key} test result: ${response.ok}`)
     } catch (error) {

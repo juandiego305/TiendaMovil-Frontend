@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { User, Lock, LogIn, Store, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+
 export function LoginForm() {
   // Estados para el formulario de administrador
   const [username, setUsername] = useState("")
@@ -101,64 +103,130 @@ export function LoginForm() {
     }
   }
 
-  // Función para autenticar como administrador y obtener token
-  const getAdminToken = async (): Promise<string | null> => {
-    try {
-      // Usar credenciales hardcodeadas para admin
-      const adminUsername = "admin"
-      const adminPassword = "clave_seminario"
-
-      console.log("Autenticando como administrador para acceder a vendedores...")
-
-      const response = await fetch("https://tienda-backend-p9ms.onrender.com/api/token/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: adminUsername,
-          password: adminPassword,
-        }),
-      })
-
-      if (!response.ok) {
-        console.error("Error al obtener token de administrador:", response.status, response.statusText)
-        return null
-      }
-
-      const data = await response.json()
-
-      if (data.access) {
-        console.log("Token de administrador obtenido correctamente.")
-        return data.access
-      }
-
-      return null
-    } catch (error) {
-      console.error("Error al autenticar como administrador:", error)
-      return null
+  const normalizeRole = (roleValue: unknown): string => {
+    if (typeof roleValue !== "string") {
+      return ""
     }
+
+    return roleValue
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
   }
 
-  // Función para obtener vendedores usando token de admin
-  const obtenerVendedores = async (token: string, tiendaId: string) => {
-    try {
-      const response = await fetch(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${tiendaId}/empleados/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+  const isAdminRole = (roleValue: string): boolean => {
+    return roleValue === "admin" || roleValue === "administrador"
+  }
 
-      if (!response.ok) {
-        throw new Error(`Error al obtener empleados: ${response.status} ${response.statusText}`)
+  const isVendorRole = (roleValue: string): boolean => {
+    return roleValue === "vendor" || roleValue === "vendedor"
+  }
+
+  const fetchCurrentUser = async (accessToken: string) => {
+    const meResponse = await fetch(`${API_BASE_URL}/api/me/`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!meResponse.ok) {
+      throw new Error(`No se pudo obtener el perfil autenticado (${meResponse.status})`)
+    }
+
+    return meResponse.json()
+  }
+
+  const resolveRoleFromResponses = (authData: any, meData: any): string => {
+    const roleFromAuth = normalizeRole(authData?.user?.role || authData?.user?.rol || authData?.role || authData?.rol)
+    if (roleFromAuth) {
+      return roleFromAuth
+    }
+
+    return normalizeRole(meData?.role || meData?.rol)
+  }
+
+  const runLoginByMode = async (mode: "admin" | "vendor", identifier: string, plainPassword: string) => {
+    const credentialField = identifier.includes("@") ? "email" : "username"
+
+    const loginPayload: Record<string, string> = {
+      password: plainPassword,
+      [credentialField]: identifier,
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/token/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(loginPayload),
+    })
+
+    let authData: any = null
+    try {
+      authData = await response.json()
+    } catch (parseError) {
+      console.error("No se pudo parsear la respuesta de /api/token/:", parseError)
+    }
+
+    if (!response.ok) {
+      const detail = authData?.detail || authData?.non_field_errors?.[0]
+      throw new Error(detail || "Credenciales incorrectas")
+    }
+
+    const access = authData?.access
+    const refresh = authData?.refresh
+
+    if (!access || !refresh) {
+      throw new Error("El login no devolvió access y refresh")
+    }
+
+    const meData = await fetchCurrentUser(access)
+    const normalizedRole = resolveRoleFromResponses(authData, meData)
+
+    if (mode === "admin" && !isAdminRole(normalizedRole)) {
+      throw new Error("Tu cuenta no tiene rol de administrador")
+    }
+
+    if (mode === "vendor" && !isVendorRole(normalizedRole)) {
+      throw new Error("Tu cuenta no tiene rol de vendedor")
+    }
+
+    localStorage.setItem("backendToken", access)
+    localStorage.setItem("refreshToken", refresh)
+    localStorage.setItem("tokenRole", normalizedRole)
+    localStorage.setItem("userType", mode)
+
+    const expiresAt = new Date()
+    expiresAt.setHours(expiresAt.getHours() + 1)
+    localStorage.setItem("tokenExpiresAt", expiresAt.toISOString())
+
+    const displayName = meData?.nombre || meData?.name || meData?.username || identifier
+    const userId = meData?.id
+
+    if (mode === "vendor") {
+      localStorage.setItem("vendorName", String(displayName))
+
+      if (userId !== undefined && userId !== null) {
+        localStorage.setItem("vendorId", String(userId))
       }
 
-      const data = await response.json()
-      return data
-    } catch (error) {
-      console.error("Error al obtener vendedores:", error)
-      throw error
+      const tiendaId = String(meData?.tienda_id || meData?.store_id || 3)
+      const tiendaNombre = String(meData?.tienda_nombre || meData?.store_name || "Tienda Principal")
+
+      localStorage.setItem("selectedStoreId", tiendaId)
+      localStorage.setItem("selectedStoreName", tiendaNombre)
+
+      const vendorNumericId = Number(userId)
+      if (!Number.isNaN(vendorNumericId)) {
+        crearCajaParaVendedor(vendorNumericId, String(displayName))
+      }
+
+      router.push("/home")
+      return
     }
+
+    router.push("/stores")
   }
 
   // Función actualizada para login de vendedor - con autenticación automática
@@ -169,7 +237,7 @@ export function LoginForm() {
 
     // Validar que los campos no estén vacíos
     if (!vendorName.trim()) {
-      setError("Por favor ingresa tu nombre")
+      setError("Por favor ingresa tu usuario o correo")
       setIsLoading(false)
       return
     }
@@ -181,60 +249,10 @@ export function LoginForm() {
     }
 
     try {
-      // Primero obtener token de administrador
-      const adminToken = await getAdminToken()
-
-      if (!adminToken) {
-        setError("No se pudo conectar con el servidor. Por favor, intenta más tarde.")
-        return
-      }
-
-      // Usar directamente el endpoint de la tienda 3
-      const tiendaId = "3"
-      console.log(`Verificando si ${vendorName} existe en tienda ${tiendaId}...`)
-
-      // Usar el token para obtener la lista de vendedores
-      const data = await obtenerVendedores(adminToken, tiendaId)
-
-      // Buscar el vendedor en la respuesta
-      let vendedorEncontrado = false
-      let vendedorData = null
-
-      if (data && data.empleados && Array.isArray(data.empleados)) {
-        // Buscar por nombre (ignorando mayúsculas/minúsculas)
-        vendedorData = data.empleados.find(
-          (emp: any) => emp.nombre && emp.nombre.toLowerCase() === vendorName.toLowerCase(),
-        )
-
-        if (vendedorData) {
-          vendedorEncontrado = true
-        }
-      }
-
-      if (vendedorEncontrado && vendedorData) {
-        console.log("Vendedor encontrado:", vendedorData)
-
-        // Guardar información en localStorage
-        localStorage.setItem("userType", "vendor")
-        localStorage.setItem("vendorName", vendedorData.nombre)
-        localStorage.setItem("vendorId", vendedorData.id.toString())
-
-        // Establecer la tienda asociada al vendedor (siempre tienda 3)
-        localStorage.setItem("selectedStoreId", tiendaId)
-        localStorage.setItem("selectedStoreName", "Tienda Principal") // Nombre fijo para la tienda 3
-
-        // Crear una caja para el vendedor
-        crearCajaParaVendedor(vendedorData.id, vendedorData.nombre)
-
-        // Redirigir a home
-        router.push(`/home`)
-      } else {
-        console.log("Vendedor no encontrado")
-        setError("No se encontró ningún vendedor con ese nombre")
-      }
+      await runLoginByMode("vendor", vendorName.trim(), vendorPassword)
     } catch (error) {
       console.error("Error en login de vendedor:", error)
-      setError("Error al verificar credenciales. Por favor, intenta nuevamente.")
+      setError(error instanceof Error ? error.message : "Error al verificar credenciales.")
     } finally {
       setIsLoading(false)
     }
@@ -254,77 +272,10 @@ export function LoginForm() {
     }
 
     try {
-      console.log("Intentando iniciar sesión con:", { username })
-
-      // Usar el nuevo endpoint de token
-      const response = await fetch("https://tienda-backend-p9ms.onrender.com/api/token/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          password,
-        }),
-      })
-
-      console.log("Respuesta del servidor:", response.status, response.statusText)
-
-      // Obtener el texto de la respuesta para depuración
-      const responseText = await response.text()
-      console.log("Respuesta completa:", responseText)
-
-      // Intentar parsear como JSON
-      let data
-      try {
-        data = JSON.parse(responseText)
-      } catch (e) {
-        console.error("Error al parsear respuesta JSON:", e)
-        throw new Error("Formato de respuesta inválido del servidor")
-      }
-
-      if (!response.ok) {
-        // Manejar errores de la API
-        console.error("Error de inicio de sesión:", data)
-
-        if (data.detail) {
-          setError(data.detail)
-        } else if (data.non_field_errors) {
-          setError(Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : data.non_field_errors)
-        } else {
-          setError("Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.")
-        }
-
-        throw new Error("Error de autenticación")
-      }
-
-      // Login exitoso, guardar tokens
-      if (data.access && data.refresh) {
-        localStorage.setItem("backendToken", data.access)
-        localStorage.setItem("refreshToken", data.refresh)
-        localStorage.setItem("userType", "admin")
-
-        // Establecer expiración del token (asumiendo 1 hora)
-        const expiresAt = new Date()
-        expiresAt.setHours(expiresAt.getHours() + 1)
-        localStorage.setItem("tokenExpiresAt", expiresAt.toISOString())
-
-        console.log("Tokens guardados correctamente:", {
-          access: data.access.substring(0, 10) + "...",
-          refresh: data.refresh.substring(0, 10) + "...",
-        })
-
-        // Redirigir a la página de tiendas
-        router.push("/stores")
-      } else {
-        console.error("No se recibieron los tokens esperados:", data)
-        throw new Error("No se recibieron los tokens de acceso y refresco")
-      }
+      await runLoginByMode("admin", username.trim(), password)
     } catch (error) {
       console.error("Error de inicio de sesión:", error)
-      if (!error) {
-        setError("Error al iniciar sesión. Por favor, intenta nuevamente.")
-      }
+      setError(error instanceof Error ? error.message : "Error al iniciar sesión. Por favor, intenta nuevamente.")
     } finally {
       setIsLoading(false)
     }
@@ -394,7 +345,7 @@ export function LoginForm() {
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-primary h-5 w-5" />
                   <Input
                     id="username"
-                    placeholder="Usuario"
+                    placeholder="Usuario o correo"
                     className="pl-10 bg-input-bg dark:bg-input border-0 h-12 text-base"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -455,7 +406,7 @@ export function LoginForm() {
               </div>
             </form>
           ) : (
-            // Formulario de vendedor simplificado (nombre + contraseña dummy)
+            // Formulario de vendedor
             <form onSubmit={handleVendorLogin} className="space-y-4">
               <div className="flex items-center mb-2">
                 <button
@@ -475,7 +426,7 @@ export function LoginForm() {
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-primary h-5 w-5" />
                 <Input
                   id="vendorName"
-                  placeholder="Tu nombre"
+                  placeholder="Usuario o correo"
                   className="pl-10 bg-input-bg dark:bg-input border-0 h-12 text-base"
                   value={vendorName}
                   onChange={(e) => setVendorName(e.target.value)}
@@ -535,7 +486,7 @@ export function LoginForm() {
               </div>
 
               <div className="text-sm text-center text-gray-500 dark:text-muted-foreground mt-2">
-                Ingresa tu nombre exactamente como está registrado en el sistema
+                Se valida tu rol en el backend antes de permitir el acceso
               </div>
             </form>
           )}
@@ -546,7 +497,7 @@ export function LoginForm() {
         <p className="text-sm text-white dark:text-foreground">
           ¿No tienes una cuenta?{" "}
           <Link href="/register" className="font-medium underline">
-            Regístrate
+            Registra un vendedor
           </Link>
         </p>
       </div>

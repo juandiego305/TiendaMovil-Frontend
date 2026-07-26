@@ -1,10 +1,12 @@
 import { fetchWithAuth } from "@/services/auth-service"
+// services/auth-service.ts (o lib/api.ts)
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://proyecto-tiendamovil.onrender.com';
 
 export async function selectStoreAndRefreshToken(storeId: string): Promise<boolean> {
   try {
     console.log(`Seleccionando tienda con ID: ${storeId}`)
     const response = await fetchWithAuth(
-      `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
+      `${API_BASE_URL}/api/tiendas/${storeId}/seleccionar_tienda/`,
       {
         method: "POST",
         headers: {

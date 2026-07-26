@@ -24,6 +24,8 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { getProducto } from "@/services/product-service" // Importar servicios
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+
 interface ProductFormData {
   id?: number
   nombre: string
@@ -249,7 +251,7 @@ export default function EditProductPage() {
       try {
         // Intentar actualizar en la API
         const response = await fetch(
-          `https://tienda-backend-p9ms.onrender.com/api/productos/${productId}/?tienda_id=${storeId}`,
+          `${API_BASE_URL}/api/productos/${productId}/?tienda_id=${storeId}`,
           {
             method: "PUT",
             headers: {

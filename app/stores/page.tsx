@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { fetchWithAuth, loginToBackend } from "@/services/auth-service"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+
 // Definir la interfaz para las tiendas
 interface StoreType {
   id: string
@@ -74,7 +76,7 @@ export default function StoresPage() {
 
       try {
         console.log("Intentando obtener lista de tiendas...")
-        const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/tiendas/")
+        const response = await fetchWithAuth(`${API_BASE_URL}/api/tiendas/`)
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -141,7 +143,7 @@ export default function StoresPage() {
       setIsLoading(true)
       setError(null)
       try {
-        const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/tiendas/")
+        const response = await fetchWithAuth(`${API_BASE_URL}/api/tiendas/`)
         if (!response.ok) {
           const errorText = await response.text()
           console.error(`Error al obtener tiendas: ${response.status} - ${response.statusText}`, errorText)
@@ -160,7 +162,7 @@ export default function StoresPage() {
     }
     if (confirm("¿Estás seguro de que deseas eliminar esta tienda? Esta acción no se puede deshacer.")) {
       try {
-        const response = await fetchWithAuth(`https://tienda-backend-p9ms.onrender.com/api/tiendas/${id}/`, {
+        const response = await fetchWithAuth(`${API_BASE_URL}/api/tiendas/${id}/`, {
           method: "DELETE",
         })
 
@@ -192,7 +194,7 @@ export default function StoresPage() {
 
       // Hacer la solicitud para seleccionar la tienda
       const response = await fetch(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
+        `${API_BASE_URL}/api/tiendas/${storeId}/seleccionar_tienda/`,
         {
           method: "POST",
           headers: {

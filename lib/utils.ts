@@ -1,6 +1,8 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
@@ -66,7 +68,7 @@ async function refreshToken(): Promise<string | null> {
     }
 
     console.log("Refrescando token...")
-    const response = await fetch("https://tienda-backend-p9ms.onrender.com/api/token/refresh/", {
+    const response = await fetch(`${API_BASE_URL}/api/token/refresh/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

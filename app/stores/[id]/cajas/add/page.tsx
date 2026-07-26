@@ -11,6 +11,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { fetchWithAuth } from "@/lib/utils"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
 
 interface CajaFormData {
   usuario: number
@@ -78,7 +79,7 @@ export default function AddCajaPage() {
     try {
       console.log(`Seleccionando tienda con ID: ${storeId}`)
       const response = await fetchWithAuth(
-        `https://tienda-backend-p9ms.onrender.com/api/tiendas/${storeId}/seleccionar_tienda/`,
+        `${API_BASE_URL}/api/tiendas/${storeId}/seleccionar_tienda/`,
         {
           method: "POST",
           headers: {
@@ -228,7 +229,7 @@ export default function AddCajaPage() {
 
       console.log("Creando nueva caja:", cajaData)
 
-      const response = await fetchWithAuth("https://tienda-backend-p9ms.onrender.com/api/cajas/", {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/cajas/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
