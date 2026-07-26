@@ -4,7 +4,13 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
-import SimpleBarcodeScanner from "@/components/simple-barcode-scanner"
+import dynamic from 'next/dynamic';
+
+// Importamos el componente dinámicamente y apagamos el SSR
+const SimpleBarcodeScanner = dynamic(
+  () => import('@/components/simple-barcode-scanner'),
+  { ssr: false }
+);
 
 export default function BarcodeDebugPage() {
   const [showScanner, setShowScanner] = useState(false)
