@@ -1,6 +1,8 @@
 import { fetchWithAuth } from "@/services/auth-service"
+import { getApiBaseUrl } from "@/lib/api-base-url"
+
 // services/auth-service.ts (o lib/api.ts)
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://proyecto-tiendamovil.onrender.com';
+export const API_BASE_URL = getApiBaseUrl()
 
 export async function selectStoreAndRefreshToken(storeId: string): Promise<boolean> {
   try {

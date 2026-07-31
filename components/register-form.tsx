@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { User, Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { getApiBaseUrl } from "@/lib/api-base-url"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+const API_BASE_URL = getApiBaseUrl()
 
 export function RegisterForm() {
   // Cambiar el estado inicial para usar password1 en lugar de password

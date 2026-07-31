@@ -1,4 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+import { getApiBaseUrl } from "@/lib/api-base-url"
+
+const API_BASE_URL = getApiBaseUrl()
 
 // Actualizar la interfaz para que coincida con los campos del serializador
 export interface Producto {

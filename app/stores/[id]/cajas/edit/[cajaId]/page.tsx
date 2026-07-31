@@ -11,8 +11,9 @@ import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { fetchWithAuth } from "@/lib/utils"
+import { getApiBaseUrl } from "@/lib/api-base-url"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+const API_BASE_URL = getApiBaseUrl()
 
 interface CajaData {
   id: number

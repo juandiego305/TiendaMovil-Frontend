@@ -8,8 +8,9 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { fetchWithAuth, loginToBackend } from "@/services/auth-service"
+import { getApiBaseUrl } from "@/lib/api-base-url"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+const API_BASE_URL = getApiBaseUrl()
 
 // Definir la interfaz para las tiendas
 interface StoreType {

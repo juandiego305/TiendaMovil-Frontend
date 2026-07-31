@@ -16,7 +16,7 @@ export default function RegisterPage() {
           <div>mixta</div>
           <div>doña jose</div>
         </div>
-        <div className="text-white/80 text-sm mt-2">by José</div>
+        <div className="text-white/80 text-sm mt-2">by Juancho</div>
       </div>
 
       {/* Formulario centrado */}

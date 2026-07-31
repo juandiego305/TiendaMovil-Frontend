@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { getProductsByStore } from "@/services/product-service" // Importar el servicio de productos
+import { fetchWithAuth } from "@/lib/utils"
 // import BarcodeScanner from "@/components/barcode-scanner"
 
 interface Product {
@@ -189,6 +190,21 @@ export default function CartPage() {
     return total + item.product.precio * item.quantity
   }, 0)
 
+  const hasOpenCashRegister = () => {
+    if (!storeId) return false
+
+    const storedCajas = localStorage.getItem(`store_${storeId}_cajas`)
+    if (!storedCajas) return false
+
+    try {
+      const cajas = JSON.parse(storedCajas)
+      return Array.isArray(cajas) && cajas.some((caja) => String(caja.estado).toLowerCase() === "abierta")
+    } catch (error) {
+      console.error("Error al leer las cajas guardadas:", error)
+      return false
+    }
+  }
+
   // Formatear precio en pesos colombianos
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -268,7 +284,7 @@ export default function CartPage() {
   }
 
   // Procesar la venta
-  const processCheckout = () => {
+  const processCheckout = async () => {
     if (cartItems.length === 0) {
       toast({
         title: "Carrito vacío",
@@ -278,15 +294,59 @@ export default function CartPage() {
       return
     }
 
+    if (!storeId) {
+      toast({
+        title: "Tienda no seleccionada",
+        description: "Selecciona una tienda antes de registrar la venta",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const stockIssue = cartItems.find((item) => item.quantity > item.product.cantidad)
+    if (stockIssue) {
+      toast({
+        title: "Stock insuficiente",
+        description: `No hay suficiente stock de ${stockIssue.product.nombre}.`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!hasOpenCashRegister()) {
+      toast({
+        title: "Caja cerrada",
+        description: "No hay una caja abierta para registrar la venta",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsProcessing(true)
 
-    // Update inventory
-    if (storeId) {
+    try {
+      const salePayload = {
+        tienda_id: Number(storeId),
+        productos: cartItems.map((item) => ({
+          producto: item.product.id,
+          cantidad: item.quantity,
+        })),
+      }
+
+      const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"}/api/ventas/`, {
+        method: "POST",
+        body: JSON.stringify(salePayload),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`No se pudo registrar la venta: ${response.status} ${response.statusText}. ${errorText}`)
+      }
+
       const storedProducts = localStorage.getItem(`store_${storeId}_products`)
       if (storedProducts) {
         let products = JSON.parse(storedProducts)
 
-        // Update quantity of each product
         cartItems.forEach((item) => {
           products = products.map((p: Product) => {
             if (p.id === item.product.id) {
@@ -301,11 +361,9 @@ export default function CartPage() {
           })
         })
 
-        // Save updated products
         localStorage.setItem(`store_${storeId}_products`, JSON.stringify(products))
       }
 
-      // Save the sale in localStorage for history
       const sale = {
         id: crypto.randomUUID(),
         items: cartItems,
@@ -319,20 +377,24 @@ export default function CartPage() {
       sales.push(sale)
       localStorage.setItem("sales", JSON.stringify(sales))
 
-      // Clear cart
       setCartItems([])
       localStorage.removeItem(`store_${storeId}_cart`)
-    }
 
-    setTimeout(() => {
-      setIsProcessing(false)
       toast({
         title: "Venta registrada",
         description: "La venta ha sido registrada con éxito",
         variant: "success",
       })
       router.push("/sales")
-    }, 1000)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "No se pudo registrar la venta",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   // Función para manejar el reconocimiento de voz

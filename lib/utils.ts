@@ -1,7 +1,8 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { getApiBaseUrl } from "@/lib/api-base-url"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+const API_BASE_URL = getApiBaseUrl()
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

@@ -13,6 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import type { Expense } from "../expenses/page"
 import { useToast } from "@/hooks/use-toast"
+import { fetchWithAuth } from "@/lib/utils"
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
 
 export default function AddExpensePage() {
   const router = useRouter()
@@ -46,6 +49,13 @@ export default function AddExpensePage() {
     const storedStoreId = localStorage.getItem("selectedStoreId")
     setStoreId(storedStoreId)
   }, [])
+
+  const resolveStoreId = () => {
+    const activeStoreId = localStorage.getItem("selectedStoreId") || localStorage.getItem("activeStoreId")
+    if (activeStoreId) return activeStoreId
+
+    return storeId
+  }
 
   const categories = ["Pedidos", "Servicios", "Nómina", "Alquiler", "Impuestos", "Otros"]
 
@@ -140,30 +150,44 @@ export default function AddExpensePage() {
         throw new Error("Por favor completa todos los campos requeridos")
       }
 
-      // Crear objeto de gasto
+      const resolvedStoreId = resolveStoreId()
+      if (!resolvedStoreId) {
+        throw new Error("No hay una tienda activa o seleccionada")
+      }
+
+      const payload = {
+        tienda_id: Number(resolvedStoreId),
+        descripcion: description,
+        monto: Number.parseFloat(amount),
+        categoria: category,
+      }
+
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/gastos/`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`No se pudo registrar el gasto: ${response.status} ${response.statusText}. ${errorText}`)
+      }
+
+      const backendExpense = await response.json()
+
       const newExpense: Expense = {
-        id: `expense-${Date.now()}`,
+        id: String(backendExpense.id ?? `expense-${Date.now()}`),
         descripcion: description,
         amount: Number.parseFloat(amount),
-        date: date, // Asegurarse de que la fecha se guarde en formato YYYY-MM-DD
+        date: date,
         categoria: category,
         paymentMethod: paymentMethod,
         notes: notes || "",
-        storeId: storeId || undefined,
+        storeId: resolvedStoreId,
       }
 
-      // Obtener gastos existentes del localStorage (solo en el cliente)
-      let expenses: Expense[] = []
       const storedExpenses = localStorage.getItem("expenses")
-
-      if (storedExpenses) {
-        expenses = JSON.parse(storedExpenses)
-      }
-
-      // Agregar nuevo gasto
+      const expenses: Expense[] = storedExpenses ? JSON.parse(storedExpenses) : []
       expenses.push(newExpense)
-
-      // Guardar en localStorage
       localStorage.setItem("expenses", JSON.stringify(expenses))
 
       // Mostrar mensaje de éxito

@@ -11,8 +11,9 @@ import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
 import { fetchWithAuth } from "@/lib/utils"
+import { getApiBaseUrl } from "@/lib/api-base-url"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+const API_BASE_URL = getApiBaseUrl()
 
 interface StoreData {
   id: string

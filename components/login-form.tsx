@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { User, Lock, LogIn, Store, ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react"
+import { getApiBaseUrl } from "@/lib/api-base-url"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+const API_BASE_URL = getApiBaseUrl()
 
 export function LoginForm() {
   // Estados para el formulario de administrador

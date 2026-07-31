@@ -1,5 +1,7 @@
 // Archivo para manejar las peticiones a la API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://proyecto-tiendamovil.onrender.com"
+import { getApiBaseUrl } from "@/lib/api-base-url"
+
+const API_BASE_URL = getApiBaseUrl()
 
 const API_URL = `${API_BASE_URL}/api`
 
